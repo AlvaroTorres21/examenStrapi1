@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_food_special_allergens",
+  "info": {
+    "displayName": "allergen"
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "text"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images"
+      ]
+    }
+  },
+  "config": {}
+}

@@ -54,32 +54,42 @@ export default factories.createCoreController('api::daily-menu.daily-menu', ({ s
     ctx.body = menus;
   },
 
-async withoutAllergens(ctx) {
+  async withoutAllergens(ctx) {
   const rawAllergens = ctx.query.excluir_alergenos;
 
   if (typeof rawAllergens !== 'string') {
-    console.warn('❌ excluir_alergenos no es una cadena:', rawAllergens);
-    return ctx.badRequest('Debes especificar al menos un alérgeno a excluir como una cadena separada por comas.');
+    return ctx.badRequest(
+      'Debes especificar al menos un alérgeno a excluir como una cadena separada por comas.'
+    );
   }
 
   const excludeList = rawAllergens
     .split(',')
     .map(a => a.trim().toLowerCase());
 
-  console.log('🔍 Lista de alérgenos a excluir:', excludeList);
-
   const menus = await strapi.db.query('api::daily-menu.daily-menu').findMany({
     populate: {
-      firstCourse: { populate: true },
-      secondCourse: { populate: true },
-      dessert: { populate: true },
+      firstCourse: { populate: { allergen: true } },
+      secondCourse: { populate: { allergen: true } },
+      dessert: { populate: { allergen: true } },
     },
   });
 
-  console.log(`📦 Menús encontrados: ${menus.length}`);
+  const safeMenus = menus
+    .filter(menu => {
+      const dishes = [menu.firstCourse, menu.secondCourse, menu.dessert].filter(Boolean);
 
-  menus.forEach(menu => {
+      return dishes.every(dish => {
+        const allergens = Array.isArray(dish.allergen)
+          ? dish.allergen.map(a => (a?.name || '').toLowerCase())
+          : [];
+
+        return !allergens.some(allergen => excludeList.includes(allergen));
+      });
+    });
+  safeMenus.forEach(menu => {
     console.log(`\n🍽️ Menu ID: ${menu.id}`);
+
     ['firstCourse', 'secondCourse', 'dessert'].forEach(courseKey => {
       const dish = menu[courseKey];
       if (!dish) {
@@ -87,29 +97,20 @@ async withoutAllergens(ctx) {
         return;
       }
 
-      console.log(`  ✅ ${courseKey} - ${dish.name || 'sin nombre'} (ID: ${dish.id})`);
-
-      const allergens = Array.isArray(dish.allergen) ? dish.allergen : [];
-      const allergenNames = allergens.map(a => a?.name?.toLowerCase() || 'desconocido');
-
-      console.log(`    🧬 Alérgenos: [${allergenNames.join(', ')}]`);
-    });
-  });
-
-  const safeMenus = menus.filter(menu => {
-    const dishes = [menu.firstCourse, menu.secondCourse, menu.dessert].filter(Boolean);
-
-    return dishes.every(dish => {
       const allergens = Array.isArray(dish.allergen)
-        ? dish.allergen.map(a => (a?.name || '').toLowerCase())
+        ? dish.allergen.map(a => a?.name?.toLowerCase()).filter(Boolean)
         : [];
 
-      return !allergens.some(allergen => excludeList.includes(allergen));
+      console.log(`  ✅ ${courseKey} - ${dish.name} (ID: ${dish.id})`);
+      console.log(`    🧬 Alérgenos: [${allergens.join(', ')}]`);
     });
   });
-
-  console.log(`✅ Menús sin los alérgenos excluidos: ${safeMenus.length}`);
-  ctx.body = safeMenus;
+  ctx.body = safeMenus.map(menu => ({
+    id: menu.id,
+    firstCourse: formatDish(menu.firstCourse),
+    secondCourse: formatDish(menu.secondCourse),
+    dessert: formatDish(menu.dessert),
+  }));
 },
 
 async getPopularDishes(ctx) {
@@ -149,6 +150,18 @@ async getPopularDishes(ctx) {
   ctx.body = sortedDishes;
 }
 
-
-
 }));
+// Función para formatear un plato con sus alérgenos
+function formatDish(dish) {
+  if (!dish) return null;
+
+  const allergens = Array.isArray(dish.allergen)
+    ? dish.allergen.map(a => a?.name?.toLowerCase()).filter(Boolean)
+    : [];
+
+  return {
+    id: dish.id,
+    name: dish.name,
+    allergens,
+  };
+};

@@ -8,148 +8,137 @@ export default {
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
+
+    async afterUpdate(event: any) {
+    await validateDishTypes(event);
+    await updateTotalPrizes(event);
+  },
+
+    async afterCreate(event: any) {
+    await validateDishTypes(event);
+    await updateTotalPrizes(event);
+  },
+
 };
 
+// Función reutilizable para extraer ID de una relación
+function extractRelationId(relation: any): number | null {
+  if (!relation) return null;
+
+  if (Array.isArray(relation.connect) && relation.connect[0]?.id)
+    return relation.connect[0].id;
+
+  if (Array.isArray(relation.set) && relation.set[0]?.id)
+    return relation.set[0].id;
+
+  if (typeof relation.id === 'number') return relation.id;
+
+  if (typeof relation === 'number') return relation;
+
+  return null;
+}
+
+// Validar que los platos asignados coincidan con su tipo esperado
 async function validateDishTypes(event: any) {
   const { data } = event.params;
 
-  const getId = (relation: any) => {
-    if (!relation) return null;
-    if (Array.isArray(relation.connect) && relation.connect[0]?.id)
-      return relation.connect[0].id;
-    if (Array.isArray(relation.set) && relation.set[0]?.id)
-      return relation.set[0].id;
-    if (typeof relation.id === 'number') return relation.id;
-    if (typeof relation === 'number') return relation;
-    return null;
-  };
+  const validations = [
+    {
+      id: extractRelationId(data.firstCourse),
+      expectedType: 'first',
+      field: 'firstCourse',
+    },
+    {
+      id: extractRelationId(data.secondCourse),
+      expectedType: 'second',
+      field: 'secondCourse',
+    },
+    {
+      id: extractRelationId(data.dessert),
+      expectedType: 'dessert',
+      field: 'dessert',
+    },
+  ];
 
-  const firstId = getId(data.firstCourse);
-  const secondId = getId(data.secondCourse);
-  const dessertId = getId(data.dessert);
+  const tasks = validations.map(async ({ id, expectedType, field }) => {
+    if (!id) return;
 
-  async function checkDishType(dishId: number | null, expectedType: string, fieldName: string) {
-    if (!dishId) return;
-    const dish = await strapi.entityService.findOne('api::dish.dish', dishId, {
+    const dish = await strapi.entityService.findOne('api::dish.dish', id, {
       fields: ['type', 'name'],
     });
-    if (!dish) {
-      throw new Error(`Dish with ID ${dishId} assigned to '${fieldName}' not found.`);
-    }
-    if (dish.type !== expectedType) {
-      throw new Error(`Dish '${dish.name}' (ID ${dishId}) assigned to '${fieldName}' must be of type '${expectedType}', but is '${dish.type}'.`);
-    }
-  }
 
-  await Promise.all([
-    checkDishType(firstId, 'first', 'firstCourse'),
-    checkDishType(secondId, 'second', 'secondCourse'),
-    checkDishType(dessertId, 'dessert', 'dessert'),
-  ]);
+    if (!dish) {
+      throw new Error(`Dish with ID ${id} assigned to '${field}' not found.`);
+    }
+
+    if (dish.type !== expectedType) {
+      throw new Error(
+        `Dish '${dish.name}' (ID ${id}) assigned to '${field}' must be of type '${expectedType}', but is '${dish.type}'.`
+      );
+    }
+  });
+
+  await Promise.all(tasks);
 }
 
 async function updateTotalPrizes(event: any) {
   const { data, where } = event.params;
 
-  console.log('📦 Data received in lifecycle:', data);
-  console.log('🔍 Where condition (menuId) received:', where);
+  const menuId = where?.id || data.id;
 
-  const menuId = where?.id;
+  // Siempre extraemos los IDs de los platos
+  const firstId = extractRelationId(data.firstCourse);
+  const secondId = extractRelationId(data.secondCourse);
+  const dessertId = extractRelationId(data.dessert);
 
-  // Función utilitaria para extraer el ID de la relación
- const getId = (relation: any) => {
-  if (!relation) return null;
+  strapi.log.info(`🔍 Extraídos IDs de platos:`, { firstId, secondId, dessertId });
 
-  // Soporta: { connect: [{ id: 1 }] }
-  if (Array.isArray(relation.connect) && relation.connect[0]?.id)
-    return relation.connect[0].id;
-
-  // Soporta: { set: [{ id: 1 }] }
-  if (Array.isArray(relation.set) && relation.set[0]?.id)
-    return relation.set[0].id;
-
-  // Soporta: { id: 1 }
-  if (typeof relation.id === 'number') return relation.id;
-
-  // Soporta: número directo
-  if (typeof relation === 'number') return relation;
-
-  return null;
- };
-
-
-  const firstId = getId(data.firstCourse);
-  const secondId = getId(data.secondCourse);
-  const dessertId = getId(data.dessert);
-
-  console.log('✅ Extracted dish IDs:', { firstId, secondId, dessertId });
-
-  // Si es UPDATE (tenemos menuId), usamos el servicio
+  // Si tenemos un ID del menú, usamos el servicio
   if (menuId) {
-    console.log(`🔄 Fetching prices from service for menuId: ${menuId}`);
+    strapi.log.info(`🔄 Recalculando precios desde el servicio para menú ${menuId}`);
     try {
       const prices = await strapi
         .service('api::daily-menu.daily-menu')
         .getMenuPrices(menuId);
 
-      console.log('📊 Prices returned from service:', prices);
-
       data.totalPrizeNoIVA = prices.totalPrizeNoIVA;
       data.totalPrizeWithIVA = prices.totalPrizeWithIVA;
+
+      strapi.log.info('✅ Precios actualizados desde servicio:', {
+        totalPrizeNoIVA: prices.totalPrizeNoIVA,
+        totalPrizeWithIVA: prices.totalPrizeWithIVA,
+      });
+
       return;
     } catch (err) {
-      console.error('❌ Error fetching prices from service:', err);
+      strapi.log.error('❌ Error al obtener precios desde el servicio:', err);
     }
   }
 
-  // Si es CREATE o no tenemos menuId, calculamos manualmente
-  console.log('➕ Calculating prices manually (beforeCreate or fallback)');
+  // Si no hay ID, lo calculamos manualmente (caso típico en beforeCreate)
+  strapi.log.info('➕ Calculando precios manualmente (sin ID de menú)');
   try {
     const [first, second, dessert] = await Promise.all([
-      firstId
-        ? strapi.entityService.findOne('api::dish.dish', firstId, {
-            fields: ['prize'],
-          })
-        : null,
-      secondId
-        ? strapi.entityService.findOne('api::dish.dish', secondId, {
-            fields: ['prize'],
-          })
-        : null,
-      dessertId
-        ? strapi.entityService.findOne('api::dish.dish', dessertId, {
-            fields: ['prize'],
-          })
-        : null,
+      firstId ? strapi.entityService.findOne('api::dish.dish', firstId, { fields: ['prize'] }) : null,
+      secondId ? strapi.entityService.findOne('api::dish.dish', secondId, { fields: ['prize'] }) : null,
+      dessertId ? strapi.entityService.findOne('api::dish.dish', dessertId, { fields: ['prize'] }) : null,
     ]);
-
-    console.log('🍽️ Dishes fetched:', {
-      first,
-      second,
-      dessert,
-    });
 
     const firstPrize = first?.prize || 0;
     const secondPrize = second?.prize || 0;
     const dessertPrize = dessert?.prize || 0;
 
-    console.log('💰 Individual prizes:', {
-      firstPrize,
-      secondPrize,
-      dessertPrize,
+    const totalPrizeNoIVA = firstPrize + secondPrize + dessertPrize;
+    const totalPrizeWithIVA = parseFloat((totalPrizeNoIVA * 1.21).toFixed(2));
+
+    data.totalPrizeNoIVA = totalPrizeNoIVA;
+    data.totalPrizeWithIVA = totalPrizeWithIVA;
+
+    strapi.log.info('✅ Precios calculados manualmente:', {
+      totalPrizeNoIVA,
+      totalPrizeWithIVA,
     });
-
-    const totalNoIVA = firstPrize + secondPrize + dessertPrize;
-    const totalWithIVA = parseFloat((totalNoIVA * 1.21).toFixed(2));
-
-    console.log('🧮 Calculated totals:', {
-      totalPrizeNoIVA: totalNoIVA,
-      totalPrizeWithIVA: totalWithIVA,
-    });
-
-    data.totalPrizeNoIVA = totalNoIVA;
-    data.totalPrizeWithIVA = totalWithIVA;
   } catch (err) {
-    console.error('❌ Error during manual price calculation:', err);
+    strapi.log.error('❌ Error calculando precios manualmente:', err);
   }
 }

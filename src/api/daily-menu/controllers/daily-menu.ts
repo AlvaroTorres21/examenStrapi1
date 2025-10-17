@@ -34,25 +34,62 @@ export default factories.createCoreController('api::daily-menu.daily-menu', ({ s
   },
 
      async getMenusByPriceRange(ctx) {
-    const min = Number(ctx.query.min_precio) || 0;
-    const max = Number(ctx.query.max_precio) || Number.MAX_SAFE_INTEGER;
+  const min = Number(ctx.query.min_precio) || 0;
+  const max = Number(ctx.query.max_precio) || Number.MAX_SAFE_INTEGER;
 
-    const menus = await strapi.db.query('api::daily-menu.daily-menu').findMany({
-      where: {
-        prize: {
-          $gte: min,
-          $lte: max,
-        },
+  const menus = await strapi.db.query('api::daily-menu.daily-menu').findMany({
+    where: {
+      prize: {
+        $gte: min,
+        $lte: max,
       },
-      populate: {
-        firstCourse: true,
-        secondCourse: true,
-        dessert: true,
+    },
+    populate: {
+      firstCourse: {
+        fields: ['id', 'name', 'type', 'prize'],
       },
-    });
+      secondCourse: {
+        fields: ['id', 'name', 'type', 'prize'],
+      },
+      dessert: {
+        fields: ['id', 'name', 'type', 'prize'],
+      },
+    },
+    select: ['id', 'day', 'prize'],
+  });
 
-    ctx.body = menus;
-  },
+  const result = menus.map(menu => ({
+    id: menu.id,
+    day: menu.day,
+    prize: menu.prize,
+    firstCourse: menu.firstCourse
+      ? {
+          id: menu.firstCourse.id,
+          name: menu.firstCourse.name,
+          type: menu.firstCourse.type,
+          prize: menu.firstCourse.prize,
+        }
+      : null,
+    secondCourse: menu.secondCourse
+      ? {
+          id: menu.secondCourse.id,
+          name: menu.secondCourse.name,
+          type: menu.secondCourse.type,
+          prize: menu.secondCourse.prize,
+        }
+      : null,
+    dessert: menu.dessert
+      ? {
+          id: menu.dessert.id,
+          name: menu.dessert.name,
+          type: menu.dessert.type,
+          prize: menu.dessert.prize,
+        }
+      : null,
+  }));
+
+  ctx.body = result;
+},
 
   async withoutAllergens(ctx) {
   const rawAllergens = ctx.query.excluir_alergenos;
@@ -137,21 +174,38 @@ async getPopularDishes(ctx) {
     });
   });
 
-  const sortedDishes = Array.from(dishCountMap.values())
-    .sort((a, b) => b.count - a.count)
-    .map(item => ({
-      id: item.dish.id,
-      name: item.dish.name,
-      prize: item.dish.prize,
-      type: item.dish.type,
-      count: item.count,
-    }));
+  const groupedByType = {
+    first: [],
+    second: [],
+    dessert: [],
+  };
 
-  ctx.body = sortedDishes;
+  dishCountMap.forEach(({ dish, count }) => {
+    if (groupedByType[dish.type]) {
+      groupedByType[dish.type].push({ dish, count });
+    }
+  });
+
+  const mostPopular = Object.entries(groupedByType).map(([type, dishes]) => {
+    if (dishes.length === 0) return null;
+
+    const topDish = dishes.sort((a, b) => b.count - a.count)[0];
+
+    return {
+      id: topDish.dish.id,
+      name: topDish.dish.name,
+      prize: topDish.dish.prize,
+      type: topDish.dish.type,
+      count: topDish.count,
+    };
+  }).filter(Boolean);
+
+  ctx.body = mostPopular;
 }
 
+
 }));
-// Función para formatear un plato con sus alérgenos
+
 function formatDish(dish) {
   if (!dish) return null;
 

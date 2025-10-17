@@ -127,7 +127,7 @@ async getPopularDishes(ctx) {
     const dishes = [menu.firstCourse, menu.secondCourse, menu.dessert];
     dishes.forEach(dish => {
       if (!dish) return;
-      const key = dish.id;
+      const key = `${dish.name}|${dish.type}|${dish.prize}`;
       if (!dishCountMap.has(key)) {
         dishCountMap.set(key, { dish, count: 1 });
       } else {
@@ -148,6 +148,7 @@ async getPopularDishes(ctx) {
 
   ctx.body = sortedDishes;
 }
+
 
 
 }));

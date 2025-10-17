@@ -1,5 +1,3 @@
-// src/api/daily-menu/controllers/daily-menu.ts
-
 import { factories } from '@strapi/strapi';
 
 export default factories.createCoreController('api::daily-menu.daily-menu', ({ strapi }) => ({

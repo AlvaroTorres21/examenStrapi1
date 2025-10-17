@@ -34,7 +34,7 @@ export default {
     },
     {
   method: 'GET',
-  path: '/daily-menus/populares',
+  path: '/daily-menus/populars',
   handler: 'daily-menu.getPopularDishes',
   config: {
     policies: [],

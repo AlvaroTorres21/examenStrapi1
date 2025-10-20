@@ -2,7 +2,6 @@ import { factories } from '@strapi/strapi';
 
 export default factories.createCoreService('api::daily-menu.daily-menu', ({ strapi }) => ({
   async getMenuPrices(menuId: number) {
-    // Obtener el menú por ID con relaciones incluidas
     const menu = await strapi.entityService.findOne('api::daily-menu.daily-menu', menuId, {
   populate: ['firstCourse', 'secondCourse', 'dessert'],
     }) as {
@@ -16,15 +15,12 @@ export default factories.createCoreService('api::daily-menu.daily-menu', ({ stra
       throw new Error(`Menu with ID ${menuId} not found.`);
     }
 
-    // Extraer precios de los platos
     const firstPrice = menu.firstCourse?.prize || 0;
     const secondPrice = menu.secondCourse?.prize || 0;
     const dessertPrice = menu.dessert?.prize || 0;
 
-    // Total sin IVA
     const totalNoIVA = firstPrice + secondPrice + dessertPrice;
 
-    // IVA (21% por ejemplo)
     const ivaRate = 0.21;
     const totalWithIVA = totalNoIVA * (1 + ivaRate);
 

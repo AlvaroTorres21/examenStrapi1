@@ -19,9 +19,8 @@ export default {
     await updateTotalPrizes(event);
   },
 
-};
+};  
 
-// Función reutilizable para extraer ID de una relación
 function extractRelationId(relation: any): number | null {
   if (!relation) return null;
 
@@ -38,7 +37,6 @@ function extractRelationId(relation: any): number | null {
   return null;
 }
 
-// Validar que los platos asignados coincidan con su tipo esperado
 async function validateDishTypes(event: any) {
   const { data } = event.params;
 
@@ -86,14 +84,12 @@ async function updateTotalPrizes(event: any) {
 
   const menuId = where?.id || data.id;
 
-  // Siempre extraemos los IDs de los platos
   const firstId = extractRelationId(data.firstCourse);
   const secondId = extractRelationId(data.secondCourse);
   const dessertId = extractRelationId(data.dessert);
 
   strapi.log.info(`🔍 Extraídos IDs de platos:`, { firstId, secondId, dessertId });
 
-  // Si tenemos un ID del menú, usamos el servicio
   if (menuId) {
     strapi.log.info(`🔄 Recalculando precios desde el servicio para menú ${menuId}`);
     try {
@@ -115,7 +111,6 @@ async function updateTotalPrizes(event: any) {
     }
   }
 
-  // Si no hay ID, lo calculamos manualmente (caso típico en beforeCreate)
   strapi.log.info('➕ Calculando precios manualmente (sin ID de menú)');
   try {
     const [first, second, dessert] = await Promise.all([

@@ -1,3 +1,7 @@
+import { EventParams, Dish } from '../../../../types';
+import { extractRelationId, calculatePrices } from '../../../../utils';
+import { API_DAILY_MENU, API_DISH, DISH_FIELDS } from '../../../../constants';
+
 export default {
   async beforeCreate(event: any) {
     await validateDishTypes(event);
@@ -21,7 +25,7 @@ export default {
 
 };  
 
-function extractRelationId(relation: any): number | null {
+/*function extractRelationId(relation: any): number | null {
   if (!relation) return null;
 
   if (Array.isArray(relation.connect) && relation.connect[0]?.id)
@@ -35,7 +39,7 @@ function extractRelationId(relation: any): number | null {
   if (typeof relation === 'number') return relation;
 
   return null;
-}
+}*/
 
 async function validateDishTypes(event: any) {
   const { data } = event.params;
@@ -79,61 +83,56 @@ async function validateDishTypes(event: any) {
   await Promise.all(tasks);
 }
 
-async function updateTotalPrizes(event: any) {
+export async function updateTotalPrizes(event: { params: EventParams }): Promise<void> {
   const { data, where } = event.params;
-
-  const menuId = where?.id || data.id;
+  const menuId = where?.id ?? data.id;
 
   const firstId = extractRelationId(data.firstCourse);
   const secondId = extractRelationId(data.secondCourse);
   const dessertId = extractRelationId(data.dessert);
 
-  strapi.log.info(`🔍 Extraídos IDs de platos:`, { firstId, secondId, dessertId });
+  strapi.log.info('🔍 Extraídos IDs de platos:', { firstId, secondId, dessertId });
 
   if (menuId) {
-    strapi.log.info(`🔄 Recalculando precios desde el servicio para menú ${menuId}`);
     try {
-      const prices = await strapi
-        .service('api::daily-menu.daily-menu')
-        .getMenuPrices(menuId);
+      strapi.log.info(`🔄 Recalculando precios desde servicio para menú ${menuId}`);
 
-      data.totalPrizeNoIVA = prices.totalPrizeNoIVA;
-      data.totalPrizeWithIVA = prices.totalPrizeWithIVA;
+      const prices = await strapi.service(API_DAILY_MENU).getMenuPrices(menuId);
 
-      strapi.log.info('✅ Precios actualizados desde servicio:', {
-        totalPrizeNoIVA: prices.totalPrizeNoIVA,
-        totalPrizeWithIVA: prices.totalPrizeWithIVA,
-      });
+      if (prices) {
+        data.totalPrizeNoIVA = prices.totalPrizeNoIVA;
+        data.totalPrizeWithIVA = prices.totalPrizeWithIVA;
 
-      return;
-    } catch (err) {
-      strapi.log.error('❌ Error al obtener precios desde el servicio:', err);
+        strapi.log.info('✅ Precios actualizados desde servicio:', {
+          totalPrizeNoIVA: prices.totalPrizeNoIVA,
+          totalPrizeWithIVA: prices.totalPrizeWithIVA,
+        });
+
+        return;
+      }
+    } catch (error) {
+      strapi.log.error('❌ Error al obtener precios desde el servicio:', error);
     }
   }
 
-  strapi.log.info('➕ Calculando precios manualmente (sin ID de menú)');
   try {
-    const [first, second, dessert] = await Promise.all([
-      firstId ? strapi.entityService.findOne('api::dish.dish', firstId, { fields: ['prize'] }) : null,
-      secondId ? strapi.entityService.findOne('api::dish.dish', secondId, { fields: ['prize'] }) : null,
-      dessertId ? strapi.entityService.findOne('api::dish.dish', dessertId, { fields: ['prize'] }) : null,
-    ]);
+    strapi.log.info('➕ Calculando precios manualmente (sin ID de menú)');
 
-    const firstPrize = first?.prize || 0;
-    const secondPrize = second?.prize || 0;
-    const dessertPrize = dessert?.prize || 0;
+    const dishIds = [firstId, secondId, dessertId].filter((id): id is number => typeof id === 'number');
 
-    const totalPrizeNoIVA = firstPrize + secondPrize + dessertPrize;
-    const totalPrizeWithIVA = parseFloat((totalPrizeNoIVA * 1.21).toFixed(2));
+    const dishes = await Promise.all(
+      dishIds.map(id =>
+        strapi.entityService.findOne(API_DISH, id, { fields: DISH_FIELDS }) as Promise<Dish | null>
+      )
+    );
+
+    const { totalPrizeNoIVA, totalPrizeWithIVA } = calculatePrices(dishes);
 
     data.totalPrizeNoIVA = totalPrizeNoIVA;
     data.totalPrizeWithIVA = totalPrizeWithIVA;
 
-    strapi.log.info('✅ Precios calculados manualmente:', {
-      totalPrizeNoIVA,
-      totalPrizeWithIVA,
-    });
-  } catch (err) {
-    strapi.log.error('❌ Error calculando precios manualmente:', err);
+    strapi.log.info('✅ Precios calculados manualmente:', { totalPrizeNoIVA, totalPrizeWithIVA });
+  } catch (error) {
+    strapi.log.error('❌ Error calculando precios manualmente:', error);
   }
 }

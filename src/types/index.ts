@@ -18,11 +18,6 @@ export interface EventParams {
   };
 }
 
-export interface Dish {
-  id: number;
-  name: string;
-  prize: number;
-}
 
 export interface PopulatedDish {
   id: number | null;
@@ -33,4 +28,27 @@ export interface PopulatedMenu {
   firstCourse?: PopulatedDish;
   secondCourse?: PopulatedDish;
   dessert?: PopulatedDish;
+}
+
+export interface Allergen {
+  id: number;
+  name: string;
+}
+
+export interface Dish {
+  id: number;
+  name: string;
+  type?: 'first' | 'second' | 'dessert';
+  prize: number;
+  allergen?: Allergen[];
+}
+
+
+export interface Menu {
+  id: number;
+  prize?: number;
+  day?: string;
+  firstCourse?: Dish;
+  secondCourse?: Dish;
+  dessert?: Dish;
 }

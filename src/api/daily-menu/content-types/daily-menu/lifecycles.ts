@@ -29,7 +29,6 @@ export default {
 
 };  
 
-
 async function validateDishTypes(event: Event) {
   const { data } = event.params;
 

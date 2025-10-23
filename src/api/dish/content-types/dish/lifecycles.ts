@@ -1,4 +1,4 @@
-import { Dish, MenuData } from '../../../../types';
+import { MenuData } from '../../../../types';
 import { calculatePrices } from '../../../../utils';
 
 export default {

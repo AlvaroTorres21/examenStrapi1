@@ -20,41 +20,44 @@ export function isMenuSafe(menu: Menu, excludeList: string[]): boolean {
   });
 }
 
-export function groupDishesByTypeWithCount(menus: Menu[]) {
-  const dishCountMap = new Map<number, { dish: Dish; count: number }>();
+type DishCount = { dish: Dish; count: number };
 
-  menus.forEach(menu => {
-    const countedDishIds = new Set<number>();
+function getDishesFromMenu(menu: Menu): (Dish | null)[] {
+  return [menu.firstCourse, menu.secondCourse, menu.dessert];
+}
 
-    const dishes = [menu.firstCourse, menu.secondCourse, menu.dessert];
-    dishes.forEach(dish => {
-      if (!dish) return;
-      const id = dish.id;
-      if (countedDishIds.has(id)) return; // ya contado en este menú
+function updateDishCountMap(
+  dishCountMap: Map<number, DishCount>,
+  dish: Dish
+) {
+  const key = dish.id;
+  if (!dishCountMap.has(key)) {
+    dishCountMap.set(key, { dish, count: 1 });
+  } else {
+    dishCountMap.get(key)!.count += 1;
+  }
+}
 
-      countedDishIds.add(id);
-
-      if (!dishCountMap.has(id)) {
-        dishCountMap.set(id, { dish, count: 1 });
-      } else {
-        dishCountMap.get(id)!.count += 1;
-      }
-    });
-  });
-
-  const groupedByType: Record<string, { dish: Dish; count: number }[]> = {
+function groupDishesByType(dishCountMap: Map<number, DishCount>) {
+  const grouped: Record<string, DishCount[]> = {
     first: [],
     second: [],
     dessert: [],
   };
 
   dishCountMap.forEach(({ dish, count }) => {
-    if (groupedByType[dish.type]) {
-      groupedByType[dish.type].push({ dish, count });
+    if (grouped[dish.type]) {
+      grouped[dish.type].push({ dish, count });
     }
   });
 
-  return Object.entries(groupedByType)
+  return grouped;
+}
+
+function getTopDishesByType(
+  groupedDishes: Record<string, DishCount[]>
+) {
+  return Object.entries(groupedDishes)
     .map(([type, dishes]) => {
       if (dishes.length === 0) return null;
       const topDish = dishes.sort((a, b) => b.count - a.count)[0];
@@ -69,7 +72,24 @@ export function groupDishesByTypeWithCount(menus: Menu[]) {
     .filter(Boolean);
 }
 
+export function groupDishesByTypeWithCount(menus: Menu[]) {
+  const dishCountMap = new Map<number, DishCount>();
 
+  menus.forEach((menu) => {
+    const uniqueDishIds = new Set<number>();
+    getDishesFromMenu(menu).forEach((dish) => {
+      if (!dish) return;
+      if (!uniqueDishIds.has(dish.id)) {
+        uniqueDishIds.add(dish.id);
+        updateDishCountMap(dishCountMap, dish);
+      }
+    });
+  });
+
+  const groupedDishes = groupDishesByType(dishCountMap);
+
+  return getTopDishesByType(groupedDishes);
+}
 
 export function populateDish(dish?: Dish | null) {
   return {

@@ -1,8 +1,6 @@
-import { RelationField, Dish, PopulatedDish, Relation} from '../types';
+import { Dish, PopulatedDish, Relation} from '../types';
+import { IVA_FACTOR} from '../constants';
 
-/**
- * Extrae el ID de una relación. Retorna undefined si no existe o no válido.
- */
 export function extractRelationId(relation?: Relation): number | undefined {
   if (!relation) return undefined;
 
@@ -23,14 +21,9 @@ export function extractRelationId(relation?: Relation): number | undefined {
   return undefined;
 }
 
-
-
-/**
- * Calcula los precios sumando y aplicando IVA.
- */
 export function calculatePrices(dishes: (Dish | null)[]): { totalPrizeNoIVA: number; totalPrizeWithIVA: number } {
   const totalPrizeNoIVA = dishes.reduce((sum, dish) => sum + (dish?.prize ?? 0), 0);
-  const totalPrizeWithIVA = parseFloat((totalPrizeNoIVA * 1.21).toFixed(2));
+  const totalPrizeWithIVA = parseFloat((totalPrizeNoIVA * IVA_FACTOR).toFixed(2));
   return { totalPrizeNoIVA, totalPrizeWithIVA };
 }
 

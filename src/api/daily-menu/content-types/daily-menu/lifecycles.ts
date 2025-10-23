@@ -1,6 +1,10 @@
 import { EventParams, Dish, Event } from '../../../../types';
 import { extractRelationId, calculatePrices } from '../../../../utils';
 import { API_DAILY_MENU, API_DISH, DISH_FIELDS } from '../../../../constants';
+import { errors } from '@strapi/utils';
+const { ValidationError } = errors;
+
+
 
 export default {
   async beforeCreate(event: Event) {
@@ -50,13 +54,13 @@ async function validateDishTypes(event: Event) {
     });
 
     if (!dish) {
-      throw new Error(`Dish with ID ${id} assigned to '${field}' not found.`);
+      throw new ValidationError(`El plato con ID ${id} para '${field}' no existe.`);
     }
 
     if (dish.type !== expectedType) {
-      throw new Error(
-        `Dish '${dish.name}' (ID ${id}) assigned to '${field}' must be of type '${expectedType}', but is '${dish.type}'.`
-      );
+      throw new ValidationError(
+      `El plato '${dish.name}' (ID ${id}) para '${field}' debe ser tipo '${expectedType}', pero es '${dish.type}'.`
+    );
     }
 
     strapi.log.info(`✅ Dish '${dish.name}' passed validation for field '${field}'.`);

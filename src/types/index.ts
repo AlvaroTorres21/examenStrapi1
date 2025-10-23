@@ -3,10 +3,10 @@ export interface RelationField {
 }
 
 export interface MenuData {
-  id?: number;
-  firstCourse?: RelationField;
-  secondCourse?: RelationField;
-  dessert?: RelationField;
+  id: string | number;
+  firstCourse?: Dish | null;
+  secondCourse?: Dish | null;
+  dessert?: Dish | null;
   totalPrizeNoIVA?: number;
   totalPrizeWithIVA?: number;
 }

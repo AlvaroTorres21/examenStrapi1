@@ -56,3 +56,17 @@ export interface Menu {
 export interface Event {
   params: EventParams;
 }
+
+export interface RelationWithId {
+  id?: number;
+}
+
+export interface RelationConnect {
+  connect?: Array<{ id?: number }>;
+}
+
+export interface RelationSet {
+  set?: Array<{ id?: number }>;
+}
+
+export type Relation = number | RelationWithId | RelationConnect | RelationSet | undefined;

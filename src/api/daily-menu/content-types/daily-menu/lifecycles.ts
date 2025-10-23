@@ -4,11 +4,13 @@ import { API_DAILY_MENU, API_DISH, DISH_FIELDS } from '../../../../constants';
 
 export default {
   async beforeCreate(event: Event) {
+        strapi.log.info('🟡 Lifecycle beforeCreate triggered');
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
 
   async beforeUpdate(event: Event) {
+        strapi.log.info('🟡 Lifecycle beforeUpdate triggered');
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
@@ -29,26 +31,19 @@ export default {
 async function validateDishTypes(event: Event) {
   const { data } = event.params;
 
+  strapi.log.info('🟡 Validating dish types with raw data:', JSON.stringify(data));
+
   const validations = [
-    {
-      id: extractRelationId(data.firstCourse),
-      expectedType: 'first',
-      field: 'firstCourse',
-    },
-    {
-      id: extractRelationId(data.secondCourse),
-      expectedType: 'second',
-      field: 'secondCourse',
-    },
-    {
-      id: extractRelationId(data.dessert),
-      expectedType: 'dessert',
-      field: 'dessert',
-    },
+    { id: extractRelationId(data.firstCourse), expectedType: 'first', field: 'firstCourse', rawValue: data.firstCourse },
+    { id: extractRelationId(data.secondCourse), expectedType: 'second', field: 'secondCourse', rawValue: data.secondCourse },
+    { id: extractRelationId(data.dessert), expectedType: 'dessert', field: 'dessert', rawValue: data.dessert },
   ];
 
-  const tasks = validations.map(async ({ id, expectedType, field }) => {
-    if (!id) return;
+  for (const { id, expectedType, field } of validations) {
+    if (!id) {
+      strapi.log.info(`⚪ No dish ID provided for ${field}, skipping validation.`);
+      continue;
+    }
 
     const dish = await strapi.entityService.findOne('api::dish.dish', id, {
       fields: ['type', 'name'],
@@ -63,10 +58,12 @@ async function validateDishTypes(event: Event) {
         `Dish '${dish.name}' (ID ${id}) assigned to '${field}' must be of type '${expectedType}', but is '${dish.type}'.`
       );
     }
-  });
 
-  await Promise.all(tasks);
+    strapi.log.info(`✅ Dish '${dish.name}' passed validation for field '${field}'.`);
+  }
 }
+
+
 
 export async function updateTotalPrizes(event: { params: EventParams }): Promise<void> {
   const { data, where } = event.params;

@@ -8,13 +8,11 @@ const { ValidationError } = errors;
 
 export default {
   async beforeCreate(event: Event) {
-        strapi.log.info('🟡 Lifecycle beforeCreate triggered');
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
 
   async beforeUpdate(event: Event) {
-        strapi.log.info('🟡 Lifecycle beforeUpdate triggered');
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },

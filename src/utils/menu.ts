@@ -21,17 +21,23 @@ export function isMenuSafe(menu: Menu, excludeList: string[]): boolean {
 }
 
 export function groupDishesByTypeWithCount(menus: Menu[]) {
-  const dishCountMap = new Map<string, { dish: Dish; count: number }>();
+  const dishCountMap = new Map<number, { dish: Dish; count: number }>();
 
   menus.forEach(menu => {
+    const countedDishIds = new Set<number>();
+
     const dishes = [menu.firstCourse, menu.secondCourse, menu.dessert];
     dishes.forEach(dish => {
       if (!dish) return;
-      const key = `${dish.name}|${dish.type}|${dish.prize}`;
-      if (!dishCountMap.has(key)) {
-        dishCountMap.set(key, { dish, count: 1 });
+      const id = dish.id;
+      if (countedDishIds.has(id)) return; // ya contado en este menú
+
+      countedDishIds.add(id);
+
+      if (!dishCountMap.has(id)) {
+        dishCountMap.set(id, { dish, count: 1 });
       } else {
-        dishCountMap.get(key)!.count += 1;
+        dishCountMap.get(id)!.count += 1;
       }
     });
   });
@@ -48,18 +54,22 @@ export function groupDishesByTypeWithCount(menus: Menu[]) {
     }
   });
 
-  return Object.entries(groupedByType).map(([type, dishes]) => {
-    if (dishes.length === 0) return null;
-    const topDish = dishes.sort((a, b) => b.count - a.count)[0];
-    return {
-      id: topDish.dish.id,
-      name: topDish.dish.name,
-      prize: topDish.dish.prize,
-      type: topDish.dish.type,
-      count: topDish.count,
-    };
-  }).filter(Boolean);
+  return Object.entries(groupedByType)
+    .map(([type, dishes]) => {
+      if (dishes.length === 0) return null;
+      const topDish = dishes.sort((a, b) => b.count - a.count)[0];
+      return {
+        id: topDish.dish.id,
+        name: topDish.dish.name,
+        prize: topDish.dish.prize,
+        type: topDish.dish.type,
+        count: topDish.count,
+      };
+    })
+    .filter(Boolean);
 }
+
+
 
 export function populateDish(dish?: Dish | null) {
   return {

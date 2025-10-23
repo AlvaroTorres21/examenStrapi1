@@ -1,47 +1,32 @@
-import { EventParams, Dish } from '../../../../types';
+import { EventParams, Dish, Event } from '../../../../types';
 import { extractRelationId, calculatePrices } from '../../../../utils';
 import { API_DAILY_MENU, API_DISH, DISH_FIELDS } from '../../../../constants';
 
 export default {
-  async beforeCreate(event: any) {
+  async beforeCreate(event: Event) {
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
 
-  async beforeUpdate(event: any) {
+  async beforeUpdate(event: Event) {
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
 
-    async afterUpdate(event: any) {
+    async afterUpdate(event: Event) {
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
 
-    async afterCreate(event: any) {
+    async afterCreate(event: Event) {
     await validateDishTypes(event);
     await updateTotalPrizes(event);
   },
 
 };  
 
-/*function extractRelationId(relation: any): number | null {
-  if (!relation) return null;
 
-  if (Array.isArray(relation.connect) && relation.connect[0]?.id)
-    return relation.connect[0].id;
-
-  if (Array.isArray(relation.set) && relation.set[0]?.id)
-    return relation.set[0].id;
-
-  if (typeof relation.id === 'number') return relation.id;
-
-  if (typeof relation === 'number') return relation;
-
-  return null;
-}*/
-
-async function validateDishTypes(event: any) {
+async function validateDishTypes(event: Event) {
   const { data } = event.params;
 
   const validations = [

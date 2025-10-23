@@ -52,3 +52,7 @@ export interface Menu {
   secondCourse?: Dish;
   dessert?: Dish;
 }
+
+export interface Event {
+  params: EventParams;
+}

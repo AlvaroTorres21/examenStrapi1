@@ -1,68 +1,56 @@
-import { MenuData } from '../../../../types';
+import { Dish, MenuData, DishFields } from '../../../../types';
 import { calculatePrices } from '../../../../utils';
+import { API_DAILY_MENU, DISH_FIELDS_TYPES } from '../../../../constants';
+
+
+async function getMenusContainingDish(dishId: number): Promise<MenuData[]> {
+  const filters = DISH_FIELDS_TYPES.map(field => ({ [field]: dishId }));
+
+  return strapi.entityService.findMany(API_DAILY_MENU, {
+    filters: { $or: filters },
+    populate: {
+      firstCourse: { fields: ['id', 'name', 'prize'] },
+      secondCourse: { fields: ['id', 'name', 'prize'] },
+      dessert: { fields: ['id', 'name', 'prize'] },
+    },
+  }) as Promise<MenuData[]>;
+}
+
+async function recalculateAndUpdateMenu(menu: MenuData) {
+  const dishes = DISH_FIELDS_TYPES.map(field => menu[field]).filter(Boolean) as Dish[];
+  const { totalPrizeNoIVA, totalPrizeWithIVA } = calculatePrices(dishes);
+
+  await strapi.entityService.update(API_DAILY_MENU, menu.id, {
+    data: { totalPrizeNoIVA, totalPrizeWithIVA },
+  });
+
+  strapi.log.info(`🟢 Precios recalculados para menú ID ${menu.id}`);
+}
 
 export default {
-  async beforeUpdate(event) {
-    const { params } = event;
-    const dishId = params.where?.id;
+  async beforeUpdate(event: { params: { where?: { id?: number } }; state: { oldPrize?: number } }) {
+    const dishId = event.params.where?.id;
     if (!dishId) return;
 
-    const oldDish = await strapi.entityService.findOne('api::dish.dish', dishId);
+    const oldDish = await strapi.entityService.findOne('api::dish.dish', dishId, { fields: ['prize'] });
     if (!oldDish) return;
 
     event.state.oldPrize = oldDish.prize;
   },
 
-  async afterUpdate(event) {
+  async afterUpdate(event: { result: Dish; state: { oldPrize?: number } }) {
     const { result, state } = event;
-    const dishId = result?.id;
-    if (!dishId) return;
+    const dishId = result.id;
 
-    const oldPrize = state.oldPrize;
-    const newPrize = result.prize;
-
-    strapi.log.info('🔔 afterUpdate lifecycle triggered');
-    strapi.log.info(`Precio anterior: ${oldPrize}, nuevo precio: ${newPrize}`);
-
-    if (oldPrize === newPrize) {
+    if (state.oldPrize === result.prize) {
       strapi.log.info('⚪ Precio no cambiado, no se actualizan menús.');
       return;
     }
 
-    const menusContainingDish = await strapi.entityService.findMany('api::daily-menu.daily-menu', {
-      filters: {
-        $or: [
-          { firstCourse: dishId },
-          { secondCourse: dishId },
-          { dessert: dishId },
-        ],
-      },
-      populate: {
-        firstCourse: {
-          fields: ['id', 'name', 'prize'],
-        },
-        secondCourse: {
-          fields: ['id', 'name', 'prize'],
-        },
-        dessert: {
-          fields: ['id', 'name', 'prize'],
-        },
-      },
-    }) as MenuData[];
+    strapi.log.info(`🔔 afterUpdate lifecycle: precio cambiado para plato ID ${dishId}`);
 
-    for (const menu of menusContainingDish) {
-      const dishes = [menu.firstCourse, menu.secondCourse, menu.dessert].filter(Boolean);
+    const menusContainingDish = await getMenusContainingDish(dishId);
 
-      const { totalPrizeNoIVA, totalPrizeWithIVA } = calculatePrices(dishes);
-
-      await strapi.entityService.update('api::daily-menu.daily-menu', menu.id, {
-        data: {
-          totalPrizeNoIVA,
-          totalPrizeWithIVA,
-        },
-      });
-
-      strapi.log.info(`🟢 Precios recalculados para menú ID ${menu.id} tras cambio de precio del plato ID ${dishId}`);
-    }
+    await Promise.all(menusContainingDish.map(menu => recalculateAndUpdateMenu(menu)));
   },
 };

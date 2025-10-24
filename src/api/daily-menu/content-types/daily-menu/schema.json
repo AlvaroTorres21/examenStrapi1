@@ -12,7 +12,8 @@
   "pluginOptions": {},
   "attributes": {
     "day": {
-      "type": "string"
+      "type": "string",
+      "required": true
     },
     "firstCourse": {
       "type": "relation",
@@ -31,6 +32,7 @@
     },
     "prize": {
       "type": "decimal",
+      "required": true,
       "default": 0
     },
     "totalPrizeNoIVA": {

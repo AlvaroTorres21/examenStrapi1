@@ -70,3 +70,5 @@ export interface RelationSet {
 }
 
 export type Relation = number | RelationWithId | RelationConnect | RelationSet | undefined;
+
+export type DishFields = 'firstCourse' | 'secondCourse' | 'dessert';

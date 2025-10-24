@@ -19,10 +19,12 @@
       ]
     },
     "name": {
-      "type": "string"
+      "type": "string",
+      "required": true
     },
     "prize": {
       "type": "decimal",
+      "required": true,
       "default": 0
     },
     "allergen": {
